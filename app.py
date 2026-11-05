@@ -115,19 +115,19 @@ def show_quota() -> None:
 
 show_quota()
 
-for m in st.session_state["messages"]:
-    with st.chat_message(m["role"]):
-        st.markdown(m["content"])
-        if m.get("meta"):
-            st.caption(m["meta"])
-
-if not st.session_state["messages"]:
-    st.write("예시 질문")
+# 예시 질문은 항상 같은 자리에 둔다 (답변 뒤에 사라지면 클릭이 무시되기 때문)
+with st.expander("예시 질문", expanded=not st.session_state["messages"]):
     cols = st.columns(2)
     for i, ex in enumerate(EXAMPLES):
         if cols[i % 2].button(ex, key=f"ex{i}", use_container_width=True):
             st.session_state["pending"] = ex
             st.rerun()
+
+for m in st.session_state["messages"]:
+    with st.chat_message(m["role"]):
+        st.markdown(m["content"])
+        if m.get("meta"):
+            st.caption(m["meta"])
 
 question = st.chat_input("연말정산에 대해 물어보세요") or st.session_state.pop("pending", None)
 if question:
