@@ -143,7 +143,9 @@ if question:
                 st.session_state["n_questions"] += 1
                 reply = ans.text or "답변을 만들지 못했습니다. 질문을 다시 써 주세요."
                 parts = []
-                if ans.tools:
+                if ans.calls:
+                    parts.append("사용한 도구: " + " / ".join(ans.calls))
+                elif ans.tools:
                     parts.append("사용한 도구: " + ", ".join(dict.fromkeys(ans.tools)))
                 if ans.pages:
                     parts.append("검색된 쪽: " + ", ".join(f"PDF {p}쪽" for p in ans.pages[:8]))

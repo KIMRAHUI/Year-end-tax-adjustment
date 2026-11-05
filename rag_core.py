@@ -188,7 +188,9 @@ SYSTEM_PROMPT = (
     "당신은 국세청 「2024년 연말정산 신고안내」 문서를 근거로 답하는 연말정산 도우미입니다.\n"
     "도구 사용 규칙:\n"
     "1. 세법 규정·요건·한도·개정 내용을 묻는 질문은 먼저 search_tax_docs로 문서를 검색합니다.\n"
-    "2. 금액 계산이 필요하면 직접 계산하지 말고 계산 도구(earned_income_deduction, rent_tax_credit, pension_tax_credit, child_tax_credit)를 씁니다. 금액 단위는 만원입니다.\n"
+    "2. 금액 계산이 필요하면 직접 계산하지 말고 반드시 계산 도구(earned_income_deduction, rent_tax_credit, pension_tax_credit, child_tax_credit)를 호출합니다. 금액 단위는 만원입니다.\n"
+    "   - 도구에 넣는 숫자는 **지금 질문에 나온 값**만 씁니다. 이전 질문이나 예시의 숫자를 재사용하지 않습니다. 월세는 '월 금액 × 개월 수'를 연 합계(만원)로 바꿔 넣습니다.\n"
+    "   - 최종 답의 금액은 도구가 돌려준 값과 같아야 합니다.\n"
     "3. 검색 결과에서 질문의 답을 찾을 수 없으면 문서에 근거가 없는 질문입니다. 지어내지 말고 '잘 모르겠습니다'라고 답합니다.\n"
     "답변 규칙:\n"
     "- 검색된 문서 내용과 도구 결과만 사용하고 지어내지 않습니다.\n"
@@ -246,6 +248,17 @@ class Answer(NamedTuple):
     tools: tuple[str, ...]
     pages: tuple[int, ...]
     blocked: str | None
+    calls: tuple[str, ...] = ()      # 도구와 입력값 (예: 'rent_tax_credit(gross_pay=3000, annual_rent=960)')
+
+
+def describe_calls(messages: Sequence[Any]) -> tuple[str, ...]:
+    """이번 질문에서 에이전트가 부른 도구와 입력값을 모은다 (검색 도구는 질의만 짧게)."""
+    out: list[str] = []
+    for m in messages:
+        for tc in (getattr(m, "tool_calls", None) or []):
+            args = ", ".join(f"{k}={str(v)[:40]}" for k, v in (tc.get("args") or {}).items())
+            out.append(f"{tc['name']}({args})")
+    return tuple(out)
 
 
 def ask(agent: Any, llm: Any, log: ToolLog, question: str, thread_id: str, max_steps: int = 6) -> Answer:
@@ -256,4 +269,7 @@ def ask(agent: Any, llm: Any, log: ToolLog, question: str, thread_id: str, max_s
     log.reset()
     result = agent.invoke({"messages": [{"role": "user", "content": question}]},
                           config={"recursion_limit": max_steps * 2 + 1, "configurable": {"thread_id": thread_id}})
-    return Answer(hide_citations(clean_answer(result["messages"][-1].text)), tuple(log.calls), tuple(sorted(set(log.pages))), None)
+    msgs = result["messages"]
+    start = max((i for i, m in enumerate(msgs) if getattr(m, "type", "") == "human"), default=0)   # 이번 질문 이후만
+    return Answer(hide_citations(clean_answer(msgs[-1].text)), tuple(log.calls), tuple(sorted(set(log.pages))), None,
+                  describe_calls(msgs[start:]))
