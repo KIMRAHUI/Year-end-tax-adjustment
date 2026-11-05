@@ -1,6 +1,5 @@
 """PDF → 챗봇용 검색 데이터(chunks.jsonl, emb.npy)를 만든다. (Colab 없이 내 컴퓨터에서 실행)
 
-노트북 4~7절과 같은 방식이다.
   - PyMuPDF로 쪽별 텍스트를 읽고, 머리글·쪽번호 줄을 지운 뒤 NFC 정규화
   - 짧은 쪽(표지·간지, 30자 미만)은 제외
   - RecursiveCharacterTextSplitter(size 500, overlap 50), chunk_id = p216-c01
@@ -69,7 +68,7 @@ def split_pages(pages: Sequence[Page]) -> list[Chunk]:
 
 
 def embed_with_bge_m3(texts: Sequence[str]) -> np.ndarray:
-    """bge-m3로 문서 벡터를 만든다 (CPU에서 5~15분, 처음 한 번은 모델 2GB를 내려받는다)."""
+    """bge-m3로 문서 벡터를 만든다"""
     from sentence_transformers import SentenceTransformer
     model = SentenceTransformer(EMBED_MODEL, device="cpu")
     return np.asarray(model.encode(list(texts), batch_size=8, normalize_embeddings=True, show_progress_bar=True))
