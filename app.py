@@ -93,7 +93,7 @@ with st.sidebar:
     st.write(f"검색 방식: **{retriever.mode}**")
     if "retriever_warning" in st.session_state:
         st.warning(st.session_state["retriever_warning"])
-    st.write(f"남은 질문: **{max(MAX_QUESTIONS - st.session_state.get('n_questions', 0), 0)}** / {MAX_QUESTIONS}")
+    quota_slot = st.empty()   # 질문을 처리한 뒤에 다시 채운다 (사이드바는 화면 위쪽이라 먼저 그려지기 때문)
     if st.button("대화 지우기"):
         for k in [k for k in st.session_state if k.startswith("agent::")] + ["messages", "thread_id", "n_questions"]:
             st.session_state.pop(k, None)
@@ -104,6 +104,14 @@ with st.sidebar:
 st.session_state.setdefault("messages", [])
 st.session_state.setdefault("thread_id", uuid.uuid4().hex)
 st.session_state.setdefault("n_questions", 0)
+
+
+def show_quota() -> None:
+    left = max(MAX_QUESTIONS - st.session_state["n_questions"], 0)
+    quota_slot.write(f"남은 질문: **{left}** / {MAX_QUESTIONS}")
+
+
+show_quota()
 
 for m in st.session_state["messages"]:
     with st.chat_message(m["role"]):
@@ -152,3 +160,4 @@ if question:
         if meta:
             st.caption(meta)
     st.session_state["messages"].append({"role": "assistant", "content": reply, "meta": meta})
+    show_quota()

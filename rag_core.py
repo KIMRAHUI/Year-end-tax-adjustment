@@ -1,6 +1,5 @@
 """연말정산 RAG 에이전트의 검색·도구·에이전트 코드 (Streamlit 배포용).
 
-노트북 14_2팀_김라희의 10~11절 구현을 앱에서 쓰기 좋게 정리한 것이다.
 - 검색: BM25(글자 2-gram) + dense(bge-m3, 미리 계산한 문서 벡터) → RRF 결합
 - 에이전트: LangChain create_agent + 검색 도구 + 계산 도구 4개 (노트북의 'A 도구형')
 - 가드레일: 인젝션 정규식 → LLM 주제 분류
@@ -211,6 +210,14 @@ def clean_answer(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
 
 
+def hide_citations(text: str) -> str:
+    """화면용: 답변 속 '(PDF 20쪽)' 같은 출처 표기와 '[문서 1]' 표기를 지운다 (쪽 정보는 답변 아래 작은 글씨로만 보여 준다)."""
+    text = re.sub(r"[ \t]*\([^()\n]*PDF[^()\n]*\)", "", text)
+    text = re.sub(r"[ \t]*\[문서\s*\d+\](?:에서|와|과|의|를|은|는)?", "", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
 def make_llm(model: str, temperature: float = 0.1, max_tokens: int = 2000) -> Any:
     """Groq 모델 (키는 환경변수 GROQ_API_KEY에서 읽는다 — Streamlit Secrets에서 주입)."""
     from langchain.chat_models import init_chat_model
@@ -249,4 +256,4 @@ def ask(agent: Any, llm: Any, log: ToolLog, question: str, thread_id: str, max_s
     log.reset()
     result = agent.invoke({"messages": [{"role": "user", "content": question}]},
                           config={"recursion_limit": max_steps * 2 + 1, "configurable": {"thread_id": thread_id}})
-    return Answer(clean_answer(result["messages"][-1].text), tuple(log.calls), tuple(sorted(set(log.pages))), None)
+    return Answer(hide_citations(clean_answer(result["messages"][-1].text)), tuple(log.calls), tuple(sorted(set(log.pages))), None)
