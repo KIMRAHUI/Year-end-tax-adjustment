@@ -1,5 +1,6 @@
 """연말정산 RAG 에이전트의 검색·도구·에이전트 코드 (Streamlit 배포용).
 
+노트북 14_2팀_김라희의 10~11절 구현을 앱에서 쓰기 좋게 정리한 것이다.
 - 검색: BM25(글자 2-gram) + dense(bge-m3, 미리 계산한 문서 벡터) → RRF 결합
 - 에이전트: LangChain create_agent + 검색 도구 + 계산 도구 4개 (노트북의 'A 도구형')
 - 가드레일: 인젝션 정규식 → LLM 주제 분류
@@ -191,7 +192,7 @@ SYSTEM_PROMPT = (
     "1. 세법 규정·요건·한도·개정 내용을 묻는 질문은 먼저 search_tax_docs로 문서를 검색합니다.\n"
     "2. 금액 계산이 필요하면 직접 계산하지 말고 반드시 계산 도구(earned_income_deduction, rent_tax_credit, pension_tax_credit, child_tax_credit)를 호출합니다. 금액 단위는 만원입니다.\n"
     "   - 도구에 넣는 숫자는 **지금 질문에 나온 값**만 씁니다. 이전 질문이나 예시의 숫자를 재사용하지 않습니다. 월세는 '월 금액 × 개월 수'를 연 합계(만원)로 바꿔 넣습니다.\n"
-    "   - 최종 답의 금액은 도구가 돌려준 값과 같아야 합니다.\n"
+    "   - 최종 답의 금액은 도구가 돌려준 값과 같아야 합니다. 금액은 '163만 2천원'처럼 만·천 단위로 읽기 쉽게 씁니다(소수점 '163.2만원'은 쓰지 않습니다).\n"
     "3. 검색 결과에서 질문의 답을 찾을 수 없으면 문서에 근거가 없는 질문입니다. 지어내지 말고 '잘 모르겠습니다'라고 답합니다.\n"
     "답변 규칙:\n"
     "- 검색된 문서 내용과 도구 결과만 사용하고 지어내지 않습니다.\n"
@@ -211,6 +212,26 @@ BLOCK_MESSAGES = {"injection": "시스템 지시를 바꾸거나 노출하라는
 
 def clean_answer(text: str) -> str:
     return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
+
+
+def _won_text(man: float) -> str:
+    """만원 단위 소수(163.2)를 '163만 2천원'처럼 읽기 쉽게 바꾼다."""
+    won = round(man * 10000)
+    eok, rest = divmod(won, 100_000_000)
+    m, r = divmod(rest, 10_000)
+    parts = []
+    if eok:
+        parts.append(f"{eok:,}억")
+    if m:
+        parts.append(f"{m:,}만")
+    if r:
+        parts.append(f"{r // 1000}천" if r % 1000 == 0 else f"{r:,}")
+    return " ".join(parts) + "원" if parts else "0원"
+
+
+def format_amounts(text: str) -> str:
+    """소수가 붙은 '163.2만원'을 '163만 2천원'으로 (정수 '1,000만원'은 그대로)."""
+    return re.sub(r"(\d[\d,]*\.\d+)\s*만\s*원", lambda m: _won_text(float(m.group(1).replace(",", ""))), text)
 
 
 def hide_citations(text: str) -> str:
@@ -273,5 +294,5 @@ def ask(agent: Any, llm: Any, log: ToolLog, question: str, thread_id: str, max_s
                           config={"recursion_limit": max_steps * 2 + 1, "configurable": {"thread_id": thread_id}})
     msgs = result["messages"]
     start = max((i for i, m in enumerate(msgs) if getattr(m, "type", "") == "human"), default=0)   # 이번 질문 이후만
-    return Answer(hide_citations(clean_answer(msgs[-1].text)), tuple(log.calls), tuple(sorted(set(log.pages))), None,
+    return Answer(format_amounts(hide_citations(clean_answer(msgs[-1].text))), tuple(log.calls), tuple(sorted(set(log.pages))), None,
                   describe_calls(msgs[start:]))
