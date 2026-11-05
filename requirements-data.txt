@@ -1,0 +1,6 @@
+# make_data.py(내 컴퓨터에서 검색 데이터 만들기)용. 앱 배포용은 requirements.txt
+pymupdf
+langchain-text-splitters
+sentence-transformers
+torch
+numpy
