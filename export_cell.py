@@ -1,5 +1,4 @@
-# ▶ Colab 노트북의 맨 아래(또는 7절 이후)에 새 셀로 넣고 실행하세요.
-#   검색에 쓰는 청크 텍스트와 문서 벡터를 파일 2개로 내보냅니다. (CHUNKS, EMBEDDINGS는 노트북의 7절 변수)
+#   검색에 쓰는 청크 텍스트와 문서 벡터를 파일 2개로 내보냅니다. 
 import json
 from pathlib import Path
 
