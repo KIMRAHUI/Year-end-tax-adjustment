@@ -15,6 +15,8 @@ import streamlit as st
 
 import rag_core as rc
 
+SHOW_DEBUG = os.environ.get("SHOW_DEBUG", "").lower() in ("1", "true")  # 개발 확인용, 기본은 숨김
+
 st.set_page_config(page_title="연말정산 도우미", page_icon="🧾", layout="centered")
 
 MODELS = {"gpt-oss-120b (정확, 기본)": "openai/gpt-oss-120b", "gpt-oss-20b (가벼움)": "openai/gpt-oss-20b"}
@@ -151,7 +153,7 @@ if question:
                     parts.append("검색된 쪽: " + ", ".join(f"PDF {p}쪽" for p in ans.pages[:8]))
                 if ans.blocked:
                     parts.append("가드레일이 차단했습니다")
-                meta = " · ".join(parts)
+                meta = " · ".join(parts) if SHOW_DEBUG else ""
             except Exception as e:
                 msg = str(e)
                 if "429" in msg or "rate" in msg.lower():
